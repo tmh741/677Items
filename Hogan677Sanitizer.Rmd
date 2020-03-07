@@ -1,0 +1,108 @@
+---
+title: "Hand Sanitizer"
+author: "Tim Hogan"
+date: "3/6/2020"
+output: ioislides
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Context
+
+- After hand sanitizer was installed, nurses underwent a training program to use hand sanitizers.
+- Before the program, in 51 visits, hand sanitizer was used 13 times.
+- After two months, when revisiting the nurses, in 56 visits, 50 of them involved hand sanitizer.
+- Can we measure how they improved?
+
+## How much did they improve?
+
+- We can approximate this by calculating p, the probability a nurse will use hand sanitizer.
+- In the first study, the proportion of nurses that used hand sanitizer was 13/51, about ~25.4%.
+- After the study, the proportion was 50/56, which is about 89%.
+- However, we can do better. Using a Bayesian approach, we can find a probability that incorporates both experiments
+
+## Incorporating Bayes' Law
+
+- In this case, we're looking at a problem with a fixed number of studies, a success case, and a failure case.
+- We can use a binomial distribution, with parameters n, the number of cases, and p, the probability of success. We also now X, the number of successes, or out data.
+- We can look closer using Bayes Law, which compares our data, X, our likelihood, X given p (or $P(X|P)$) and our prior information for our probability, $P(p)$.
+
+$$ P(p|X) \propto P(X|p)*P(p) $$
+- So, to move forward, we need to find our likelihood and prior information.
+
+## Conjugate Priors
+
+- The likelihood of a binomial distribution is $P(X|p) \propto p^{x}(1-p)^{n-x}$.
+- We can incorporate prior information by using conjugate priors. This allows us to incorporate prior information in a very easy manner.
+- First, we can take terms with data in our likelihood and turn them into parameters. Our data is x and n, since p is an underlying component. 
+- This gives us a distribution $P(p) \propto p^{\alpha-1}(1-p)^{\beta-1}$. This is the beta distribution with parameters $\alpha$ and $\beta$, the conjugate prior for the binomial distribution!
+
+## Prior to Posterior
+
+- To find our posterior, we can refer back to Bayes Law, $P(p|X) \propto P(X|p)*P(p)$.
+- We can plug in our likelihood and posterior to find that
+$$ P(p|X) \propto p^{x}(1-p)^{n-x} p^{\alpha-1}(1-p)^{\beta-1}$$
+$$ P(p|X) \propto p^{x+\alpha-1}(1-p)^{n-x+\beta-1}$$
+
+- This, once again, is a beta distribution, $p^{a-1} + (1-p)^{b-1}$ with paramters $a = x+ \alpha$ and $b =n-x+\beta$. In other words, it's comparing the number of successes and failures, adjusted by prior information parameters $alpha$ and $beta$.
+
+## An uninformative prior. 
+
+- Suppose we have no prior information. Our prior can simply be a flat line, which is a beta distribution with parameters $\alpha=1$ and $\beta=1$.
+- We also know for our experiment that x is the 50 people that used hand sanitizer and n is 56 study cases. Plugging in, we can find our posterior will follow a beta with parameters $a = x + \alpha = 50+1=51$ and $b =n-x+\beta= 56-50=7$.
+- This distribution is a beta, so it has a mean of $\frac{\alpha}{\alpha+\beta} = \frac{51}{51+7}= 0.88$, and mode $\frac{\alpha-1}{\alpha+\beta-2} = \frac{51-1}{51+7-2} = 0.89$.
+- Because we know this distribution, we can simulat it in R using a beta with parameters $a = 50$ and $b = 6$. This graph below shows the distribution of 1000 sampled cases.
+
+
+## Simulating posterior with uninformative prior
+
+
+```{r, echo=F}
+set.seed(5)
+x = 50
+n = 56
+a1 = 1
+b1 = 1
+sim1 <- rbeta(1000,x+a1,n-x+b1)
+hist(sim1,main="1000 Simulated Cases with uninformative prior",xlab="Probability")
+
+```
+
+## Simulating posterior with uninformative prior
+
+- This simulation has a mean `r mean(sim1)`, which is very close to our estimated mean 0.88!
+
+```{r,echo=F}
+hist(sim1,main="1000 Simulated Cases with uninformative prior",xlab="Probability")
+```
+
+## Incorporating past study into prior
+
+- We can also use the initial study's data as prior information.
+- In their study, they had 13 successes out of 51 cases. This can be approximated with prior parameters $\alpha=13$ and $\beta = 51-13=38$.
+- This would lead to a conjugate beta with parameters $a = 50 + 13 = 63$ and $b = 6 + 38 = 44$. This distribution would have a mean of $\frac{63}{63+44} = 0.59$, and a mode of $\frac{63-1}{63+44-2} =0.59$. 
+- Like last time, we can make 1000 simulations from a beta distribution in R with our $a$ and $b$ parametres.
+
+## Simulating Posterior with Information
+```{r,echo=F}
+set.seed(6)
+a2 = 13
+b2 = 38
+sim2 <- rbeta(1000,x+a2,n-x+b2)
+```
+
+- Our simulation has a mean `r mean(sim2)`, which is close to our estimated mean of 0.59.
+
+```{r, echo=F}
+hist(sim2,main="1000 Simulated Cases with informative prior",xlab="Probability")
+```
+
+## Conclusions.
+
+- We analyzed the probability of nurses using hand sanitizer from these problems using an uniformative and informative case with Bayesian likelihood and conjugate priors.
+- With no prior information, we estimated a mean probability of 0.88. With  information from the past experiment, we estimated a mean probability 0.59.
+- Both of these distributions show a major improvement from the original rate of 0.25. However, the "informed" prior is lower, since it considers the past experiment as well as the most recent one.
+- As successful cases and studies continue, the posterior can continue to be updated to incorporate both past data and current data.
+

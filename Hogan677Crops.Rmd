@@ -1,0 +1,172 @@
+---
+title: "Irrigation - Circular Cropping"
+author: "Tim Hogan"
+date: "3/6/2020"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## The problem
+
+- Center Pivot Arrogation Systems sprinkle over large spans of areas with large, rotating arms.
+- They typically extend around 1320 feet long, with end guns extending beyond that to spray water.
+- Usually, it takes a bit less than a day to pivot a full rotation.
+- Problem: What is the speed of the arm at the outer wheels?
+
+## Forming an approach
+
+- Speed is the distance divided by the time traveled. We have waiting times and we know the radius of the arm.
+- We can calculate the distance the outer wheels travel knowing that the arm extends 1320 to the outer wheels, or 0.25 miles. Its travel distance for a cycle will be $2\pi r= 2\pi*1320 \sim 8300$ feet.
+- Since we can approximate speed as distance traveled over time, we can estimate the time!
+- For data, we have 35 times for a full rotation for an irrigation wheel. We can use these to estimate time with variance.
+
+## Sampling and Confidence
+
+- This data comes from a sample of times. Our goal is to use this sample to estimate the true underlying average of all of the waiting times.
+- However, there is randomness that comes from sampling. Because of this, our number can contain uncertainty.
+- Therefore, it's more appropriate to give a range of likely values. In this case, I will calculate a 90% confidence interval for waiting speed, which would contain the true mean across 90% of experiments.
+
+## Calculating a confidence interval
+
+- The equation to form a 90% confidence interval is
+
+$$CI = \mu \pm Z_\alpha \frac{\sigma}{\sqrt{n}} $$
+
+- For this, $\mu$ is the average of our data, $\sigma$ is the variance of our data, and $n$ is the number of samples. $Z_\alpha$ is a critical value that changes based on what we want to set our confidence interval at. For an interval of 90%, this value will be 1.65.
+- Effectively, we're forming a range of values around the mean based on how much variance is in our data.
+
+## Approaching the Problem
+
+- There are two ways I will go over estimating speed. We can frame it in two ways.
+
+- 1: How much time does it take for the wheel to complete a full rotation?
+- 2: What is the average speed of the wheel given the the time it takes to move one full rotation?
+
+## Our Times
+
+- This is the distribution of waiting times. They seem relatively well-spread, and even though there's some variance, it does seem like they're pretty evenly spread out around the range.
+
+```{r, echo = F}
+times <- read.table("rot.txt")
+times <- unlist(times,use.names=FALSE)
+hist(times,xlab="Time (hours)",ylab="Frequency",main="Distribution of Rotation Times")
+```
+
+
+## Approach 1: Calculate Time
+
+- We know that $speed = \frac{distance}{time}$. Since we know that the distance is constant, we can also say that $time = \frac{distance}{speed}$. 
+- Therefore, a simple way to approach this is find the distribution of times, and use that to gain insight into the distribution of speeds.
+
+
+
+## Approach 1: Finding the Distribution of Time
+```{r,echo=F}
+mean=mean(times)
+sd = sd(times)
+samples = length(times)
+distrot = 2*pi*1320
+up = mean + qnorm(0.95)*sd/sqrt(35)
+low = mean - qnorm(0.95)*sd/sqrt(35)
+range = c(up,low)
+avspeed = distrot/range
+```
+
+- Again, referring back to our formula for Confidence Interval, we need our mean, standard deviation, and the number of samples.
+- For this sample, we have $n = 35$ samples, with a mean of `r round(mean(times),digits=2)` hours, and standard deviation of `r round(sd(times),digits=2)` hours.
+- Plugging it into our equation from before, we can calculate that our CI is $22.84 \pm 1.65*\frac{1.23}{\sqrt{35}} = 22.84 \pm 0.34$.
+- In other words, for 90% of experiments, the arm will make a full rotation between 22.49 hours and 23.18 hours.
+- Our 90% confidence interval ranges from `r round(avspeed[1],2)` to `r round(avspeed[2],2)` feet/hour.
+
+## Aprroach 2: The Distribution of Speed.
+
+- Once again, since we know that $speed = \frac{distance}{time}$, we can frame speed as a transformed version of time.
+- Rather than before, speed would therefore have its own distribution.
+- We do not have data sampled directly from speed, but we can estimate it from the time data.
+
+## Approach 2: Delta Method
+
+- We can use the Delta to approximate the distribution for time. 
+$$speed \sim N(\mu = g(\bar{t}),\sigma^2= g'(\bar{t})^2*\frac{\sigma^2}{n})$$
+- Basically, we're using a normal distribution to approximate the distribution of speed from our data.
+- In this case, $g(\bar{t}) = \frac{distance}{\mu_t}$, our equation calculated speed, specifically for the average time from our sampling distribution, $\mu_t$.
+- $g'(t)$ is the derivative of that equation. Using calculus, we find that $g'(t) = -\frac{distance}{speed^2}$. 
+
+## Approach 2: Delta Method
+
+- This makes our final equation. 
+$$speed \sim N(\mu = \frac{distance}{\mu_t}, \sigma^2=(\frac{distance}{\mu_t^2})^2\frac{\sigma^2}{n})$$
+- If you recall the equation for the confidence interval,  we can actually construct our confidence interval from the above mean and variance!
+
+$$ CI =  \frac{distance}{\mu_t} \pm 1.65*(\frac{distance}{\mu_t^2})^2\frac{\sigma^2}{n}$$
+
+## Approach 2: Calculations
+
+```{r,echo=F}
+meandel = distrot/mean(times)
+vardel=(distrot/(mean(times))^2)^2 * (sd(times))^2/35
+up2 = meandel + qnorm(0.95)*sqrt(vardel)
+low2 = meandel - qnorm(0.95)*sqrt(vardel)
+CI2 <- c(low2,up2)
+```
+
+- And, we know what all the variables are from Approach 1!
+$$CI = \frac{2\pi*1320}{22.84} \pm (\frac{2\pi*1320}{22.84^2})^2\frac{1.23^2}{35}) $$
+
+$$ CI = 363.12 \pm 5.43$$
+
+Our confidence interval therefore ranges from `r round(low2,2)` to `r round(up2,2)` feet per hour.
+
+
+## Comparing our approaches:
+```{r, echo=F}
+useless = avspeed[2] - avspeed[1] - (CI2[2]-CI2[1])
+```
+
+- From calculating from times, our interval was approximated to be `r round(avspeed[1],2)` to `r round(avspeed[2],2)` feet per hour.
+- With the delta method, our was from `r round(low2,2)` to `r round(up2,2)` feet per hour.
+- These actually are quite close! This could be due to the low variance of the data. 
+- However, the delta method seems to do just about the same as just calculating times and converting those.
+
+## Other considerations
+
+- If we got more insight into what we expected out of the mechanism, we can incorporate that information into these intervals by approximating population parameters, or comparing them based on a distribution.
+- Additionally, taking more samples from more machines will let us become more confident in our ranges. 
+
+## Thank you!
+
+## Appendix: Moments
+
+- Any distribution has a set of characteristics.
+- Its mean is the average value. Its variance is how much it varies.
+- Skewness is whether the data is centered or tends to one side or the other.
+- Kurtosis approximates the size of the tails versus the peak of the distribution.
+- You can use these to compare the distribution of data with the distribution of the sample.
+
+## Appendix: Distribution of Data
+
+```{r,include=F}
+library(MASS)
+library(fitdistrplus)
+```
+
+- The descdist() function in R uses bootstrap to simulate samples from the data multiple times, and then calculates different aspects of the distribution to compare it to others. By this, it seems to say that the rotation times as it is now seems closest to a uniform distribution. 
+
+```{r,echo=F}
+
+descdist(times,discrete=F,boot=500)
+```
+
+## Appendix: Distribution of Speeds
+
+- Similarly, the distribution of speeds is also seen as uniform.
+
+```{r,echo=F,warnings=F}
+descdist(distrot/times,discrete=F,boot=500)
+```
+
+
+
